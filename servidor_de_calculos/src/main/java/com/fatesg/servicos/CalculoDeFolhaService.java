@@ -24,17 +24,17 @@ public class CalculoDeFolhaService implements ServidorDeCalculoFolhaInterface {
             int offset = 0;
             int limit = 50;
             List<SalarioDto> salarios;
-            // do {
-                salarios = stub.listarSalarios(limit, offset);
-                for (SalarioDto salarioDto : salarios) {
-                    ReciboDto recibo = calcularReciboDePagamento(salarioDto.getIdFuncionario(), mes, ano, descontos);
-                    folha.addRecibo(recibo);
-                }
-                offset++;
-            // } while (salarios.size() > 0);
+            
+            salarios = stub.listarSalarios(limit, offset);
+            for (SalarioDto salarioDto : salarios) {
+                // OTIMIZAÇÃO: Usando o salarioDto que já temos, em vez de buscar de novo por ID
+                ReciboDto recibo = processarCalculoRecibo(salarioDto, mes, ano, descontos);
+                folha.addRecibo(recibo);
+            }
+            
             return folha;
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.err.println("Erro no calcularFolhaDePagamento: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
@@ -48,26 +48,33 @@ public class CalculoDeFolhaService implements ServidorDeCalculoFolhaInterface {
             if (salarioBrutoAnual == null)
                 throw new Exception("Salario não encontrado para o ID:" + idFuncionario);
 
-            double salarioBruto = salarioBrutoAnual.getValor() / 12;
-            var recibo = new ReciboDto(
-                    mesReferencia,
-                    anoReferencia,
-                    idFuncionario,
-                    new SalarioDto(idFuncionario, salarioBruto));
-
-            descontos.forEach((k, v) -> {
-                recibo.addDesconto(k, v);
-            });
-
-            double salarioLiquido = calcularSalarioLiquido(salarioBruto, descontos);
-            recibo.setSalarioLiquido(salarioLiquido);
-
-            return recibo;
+            return processarCalculoRecibo(salarioBrutoAnual, mesReferencia, anoReferencia, descontos);
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.err.println("Erro no calcularReciboDePagamento: " + e.getMessage());
             e.printStackTrace();
             return null;
         }
+    }
+
+    // Método auxiliar para evitar repetição de código e melhorar performance
+    private ReciboDto processarCalculoRecibo(SalarioDto salarioBrutoAnual, byte mesReferencia, short anoReferencia,
+            HashMap<String, Double> descontos) {
+        
+        double salarioBruto = salarioBrutoAnual.getValor() / 12;
+        var recibo = new ReciboDto(
+                mesReferencia,
+                anoReferencia,
+                salarioBrutoAnual.getIdFuncionario(),
+                new SalarioDto(salarioBrutoAnual.getIdFuncionario(), salarioBruto));
+
+        descontos.forEach((k, v) -> {
+            recibo.addDesconto(k, v);
+        });
+
+        double salarioLiquido = calcularSalarioLiquido(salarioBruto, descontos);
+        recibo.setSalarioLiquido(salarioLiquido);
+
+        return recibo;
     }
 
     @Override
