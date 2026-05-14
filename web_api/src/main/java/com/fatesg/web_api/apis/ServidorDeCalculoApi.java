@@ -19,15 +19,29 @@ public class ServidorDeCalculoApi implements ClienteDeCalculoFolhaInterface {
     private PrintWriter saida;
     private BufferedReader entrada;
 
-    public ServidorDeCalculoApi() {
-        super();
-    }
+    private static int proximoServidor = 0;
 
     private void conectar() throws IOException {
-        this.cliente = new Socket(JsonRPCConfig.JSON_RPC_SERVER_HOST, (int) JsonRPCConfig.JSON_RPC_SERVER_PORT);
+        String host;
+        int port;
+
+        if (proximoServidor % 2 == 0) {
+            host = JsonRPCConfig.JSON_RPC_SERVER_HOST;
+            port = (int) JsonRPCConfig.JSON_RPC_SERVER_PORT;
+        } else {
+            host = JsonRPCConfig.JSON_RPC_SERVER_HOST2;
+            port = (int) JsonRPCConfig.JSON_RPC_SERVER_PORT2;
+        }
+
+        System.out.println(">>> [LOAD BALANCER] Enviando requisição para o servidor de cálculo na porta: " + port);
+
+        this.cliente = new Socket(host, port);
         this.saida = new PrintWriter(cliente.getOutputStream(), true);
         this.entrada = new BufferedReader(new InputStreamReader(cliente.getInputStream()));
+
+        proximoServidor++;
     }
+
 
     private void fecharConexao() throws IOException {
         if (cliente != null && cliente.isConnected()) {
